@@ -32,7 +32,7 @@ composer require squirtle/websocket
 After installing the package, publish the configuration files:
 
 ```bash
-php artisan vendor:publish --provider="Squirtle\Websocket\WebsocketServiceProvider"
+php artisan vendor:publish --provider="Squirtle\WebSocket\WebSocketServiceProvider"
 ```
 
 In the published `config/websocket.php` file, you can configure Swoole, Redis, and other settings according to your
