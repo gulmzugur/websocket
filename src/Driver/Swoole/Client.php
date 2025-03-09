@@ -26,6 +26,8 @@ class Client implements ClientInterface
     protected ?Closure $onMessageCallback = null;
     protected ?Closure $onCloseCallback = null;
     protected ?Closure $onErrorCallback = null;
+    protected ?int $senderCid = null;
+    protected ?int $receiverCid = null;
 
     /**
      * Constructs a new instance of the class with the specified configuration and PubSub broker.
@@ -72,6 +74,12 @@ class Client implements ClientInterface
                     if ($this->onErrorCallback) {
                         call_user_func($this->onErrorCallback, $this->client->errMsg, $this->client->errCode);
                     }
+                    if (isset($this->senderCid)) {
+                        Coroutine::cancel($this->senderCid);
+                    }
+                    if (isset($this->receiverCid)) {
+                        Coroutine::cancel($this->receiverCid);
+                    }
                     Coroutine::sleep(3);
                     return;
                 }
@@ -92,26 +100,23 @@ class Client implements ClientInterface
                 }
 
                 // Create a coroutine to continuously listen for outgoing WebSocket messages
-                Coroutine::create(function () {
-                    while (true) {
-                        try {
-                            $broker = $this->broker->connection(true);
-                            $broker->subscribe([$this->channel['outgoing']], function ($redis, $channel, $message) {
-                                if ($this->client->connected) {
-                                    Event::dispatch(new MessageSent($channel, $message));
-                                    $this->client->push($message, WEBSOCKET_OPCODE_TEXT);
-                                }
-                            });
-                        } catch (Exception $e) {
-                            Event::dispatch(new ConnectionFailed($e->getMessage(), $e->getCode()));
-                            break;
-                        }
-                        Coroutine::sleep(3);
+                $this->senderCid = Coroutine::create(function () {
+                    try {
+                        $broker = $this->broker->connection(true);
+                        $broker->subscribe([$this->channel['outgoing']], function ($redis, $channel, $message) {
+                            if ($this->client->connected) {
+                                Event::dispatch(new MessageSent($channel, $message));
+                                $this->client->push($message, WEBSOCKET_OPCODE_TEXT);
+                            }
+                        });
+                    } catch (Exception $e) {
+                        Event::dispatch(new ConnectionFailed($e->getMessage(), $e->getCode()));
+                        return;
                     }
                 });
 
                 // Create a coroutine to continuously listen for incoming WebSocket frames
-                Coroutine::create(function () {
+                $this->receiverCid = Coroutine::create(function () {
                     while (true) {
                         // Wait for a frame with a timeout of -1 seconds
                         $frame = $this->client->recv(-1);
@@ -122,7 +127,13 @@ class Client implements ClientInterface
                             if ($this->onCloseCallback) {
                                 call_user_func($this->onCloseCallback, $this->client->errMsg, $this->client->errCode);
                             }
-                            break;
+                            if (isset($this->senderCid)) {
+                                Coroutine::cancel($this->senderCid);
+                            }
+                            if (isset($this->receiverCid)) {
+                                Coroutine::cancel($this->receiverCid);
+                            }
+                            return;
                         }
 
                         // If a valid frame with data is received, process the message
@@ -135,7 +146,7 @@ class Client implements ClientInterface
                                 $this->broker->publish($this->channel['incoming'], $frame->data);
                             } catch (Exception $e) {
                                 Event::dispatch(new ConnectionFailed($e->getMessage(), $e->getCode()));
-                                break;
+                                return;
                             }
                         }
                     }
