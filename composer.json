@@ -1,0 +1,40 @@
+{
+    "name": "squirtle/websocket",
+    "description": "Websocket client and server for Laravel",
+    "keywords": [
+        "laravel",
+        "websocket",
+        "websockets",
+        "real-time"
+    ],
+    "authors": [
+        {
+            "name": "Squirtle",
+            "email": "gulmzugur@gmail.com"
+        }
+    ],
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "ext-redis": "*",
+        "ext-sockets": "*",
+        "ext-swoole": "*",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "illuminate/events": "^10.0|^11.0|^12.0",
+        "illuminate/console": "^10.0|^11.0|^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Squirtle\\Websocket\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Squirtle\\WebSocket\\WebSocketServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
